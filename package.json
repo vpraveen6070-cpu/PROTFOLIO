@@ -4,7 +4,8 @@
   "private": true,
   "description": "Portfolio website",
   "scripts": {
-    "dev": "npx serve -s ."
+    "start": "npx serve .",
+    "dev": "npx serve ."
   },
   "keywords": [],
   "author": "",

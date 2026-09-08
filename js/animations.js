@@ -103,49 +103,10 @@ function initAuroraBackground() {
 }
 
 // =============================================
-// FLOATING GEOMETRIC SHAPES
+// FLOATING GEOMETRIC SHAPES (Disabled)
 // =============================================
 function initFloatingShapes() {
-  const hero = document.getElementById('hero');
-  if (!hero) return;
-
-  const shapes = [
-    { type: 'circle', size: 300, top: '15%', left: '-5%', delay: 0 },
-    { type: 'rect', size: 200, top: '60%', right: '-3%', delay: 2 },
-    { type: 'triangle', size: 150, bottom: '25%', left: '8%', delay: 1 },
-    { type: 'ring', size: 250, top: '40%', right: '10%', delay: 3 },
-  ];
-
-  shapes.forEach(s => {
-    const div = document.createElement('div');
-    div.className = 'floating-shape';
-    div.style.cssText = `
-      position: absolute;
-      width: ${s.size}px;
-      height: ${s.size}px;
-      pointer-events: none;
-      opacity: 0.06;
-      top: ${s.top || 'auto'};
-      bottom: ${s.bottom || 'auto'};
-      left: ${s.left || 'auto'};
-      right: ${s.right || 'auto'};
-      animation: float ${6 + s.delay}s ease-in-out infinite ${s.delay}s;
-    `;
-
-    if (s.type === 'circle') {
-      div.style.borderRadius = '50%';
-      div.style.background = 'radial-gradient(circle, var(--accent-1), transparent)';
-    } else if (s.type === 'rect') {
-      div.style.border = '2px solid var(--accent-2)';
-      div.style.borderRadius = '30px';
-    } else if (s.type === 'ring') {
-      div.style.border = '1px solid var(--accent-1)';
-      div.style.borderRadius = '50%';
-      div.style.opacity = '0.08';
-    }
-
-    hero.appendChild(div);
-  });
+  return;
 }
 
 // =============================================

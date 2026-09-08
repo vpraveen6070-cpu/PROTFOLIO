@@ -1,15 +1,21 @@
+
 <!DOCTYPE html>
-<html lang="en" data-theme="neon">
+<html lang="en" data-theme="dark">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard | Praveen Kumar Portfolio</title>
+  <!-- Favicon & App Icon -->
+  <link rel="icon" type="image/svg+xml" href="../images/favicon.svg">
+  <link rel="icon" type="image/png" href="../images/pk-logo.png">
+  <link rel="apple-touch-icon" href="../images/pk-logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,400&display=swap" rel="stylesheet">
   <link
-    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Monsieur+La+Doulaise&family=Herr+Von+Muellerhoff&family=Birthstone&family=Pinyon+Script&family=Alex+Brush&family=Great+Vibes&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Montserrat:wght@800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="../css/themes.css">
@@ -47,10 +53,7 @@
         style="display:block;margin-top:1rem;text-align:center;color:var(--text-secondary);font-size:0.85rem;text-decoration:none;transition:color 0.2s;"
         onmouseover="this.style.color='var(--accent-1)'" onmouseout="this.style.color='var(--text-secondary)'">← Back to
         Home</a>
-      <div style="margin-top:1.5rem; display:flex; justify-content:center;">
-        <a href="javascript:void(0)" class="view-toggle-link login-view-toggle"
-          style="text-decoration:none;font-size:0.8rem;"><span>📱Mobile View</span></a>
-      </div>
+
     </div>
   </div>
 
@@ -60,7 +63,7 @@
     <!-- Sidebar -->
     <div class="admin-sidebar">
       <div class="admin-brand">
-        <span class="admin-brand-logo">PK</span>
+        <span class="admin-brand-logo"><img src="../images/pk-logo.png" alt="PK Logo" class="brand-logo-img admin-logo-img"></span>
         <span class="admin-brand-text">Admin</span>
       </div>
       <nav class="admin-nav">
@@ -86,8 +89,6 @@
           <p style="color:var(--text-secondary);font-size:0.85rem;">Welcome back, Praveen! 👋</p>
         </div>
         <div class="admin-header-actions">
-          <a href="javascript:void(0)" class="view-toggle-link admin-view-toggle"
-            style="margin-right:1.5rem;text-decoration:none;font-size:0.85rem;"><span>📱Mobile View</span></a>
           <span id="admin-datetime"
             style="color:var(--text-secondary);font-size:0.85rem;font-family:var(--font-code);"></span>
         </div>

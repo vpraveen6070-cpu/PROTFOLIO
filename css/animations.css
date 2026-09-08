@@ -79,33 +79,7 @@
 
 /* ---- Floating Shapes Background ---- */
 .floating-shape {
-  position: absolute;
-  pointer-events: none;
-  opacity: 0.06;
-  animation: float 6s ease-in-out infinite;
-}
-.floating-shape.shape-1 {
-  width: 300px; height: 300px;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--accent-1), transparent);
-  top: 10%; left: -5%;
-  animation-duration: 8s;
-}
-.floating-shape.shape-2 {
-  width: 200px; height: 200px;
-  border: 2px solid var(--accent-2);
-  border-radius: 30px;
-  top: 60%; right: -3%;
-  animation-duration: 6s; animation-delay: 2s;
-  opacity: 0.1;
-}
-.floating-shape.shape-3 {
-  width: 150px; height: 150px;
-  border: 1px solid var(--accent-1);
-  border-radius: 50%;
-  bottom: 20%; left: 10%;
-  animation-duration: 10s; animation-delay: 1s;
-  opacity: 0.08;
+  display: none !important;
 }
 
 /* ---- Animated Gradient Border ---- */

@@ -13,13 +13,19 @@
   <meta property="og:type" content="website">
   <title>Praveen Kumar | CSE PORTFOLIO </title>
 
+  <!-- Favicon & App Icon -->
+  <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+  <link rel="icon" type="image/png" href="images/pk-logo.png">
+  <link rel="apple-touch-icon" href="images/pk-logo.png">
+
   <!-- Fonts & CDN Preconnects -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,400&display=swap" rel="stylesheet">
   <link
-    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Monsieur+La+Doulaise&family=Herr+Von+Muellerhoff&family=Birthstone&family=Pinyon+Script&family=Alex+Brush&family=Great+Vibes&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Montserrat:wght@800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet">
 
   <!-- CSS -->
@@ -35,7 +41,7 @@
 
   <!-- ======================== LOADING SCREEN ======================== -->
   <div id="loading-screen">
-    <div class="loader-logo">PK</div>
+    <div class="loader-logo"><img src="images/pk-logo.png" alt="PK Logo" class="brand-logo-img loader-logo-img"></div>
     <div class="loader-bar-container">
       <div class="loader-bar"></div>
     </div>
@@ -49,16 +55,15 @@
 
   <!-- ======================== NAVBAR ======================== -->
   <nav id="navbar">
-    <a href="#hero" class="nav-logo">PK<span style="color:var(--text-secondary)"></span></a>
+    <a href="#hero" class="nav-logo"><img src="images/pk-logo.png" alt="PK Logo" class="brand-logo-img nav-logo-img"></a>
 
     <ul class="nav-links">
       <li><a href="#about">About</a></li>
-      <li><a href="#skills">Skills</a></li>
+      <li><a href="#academics">Academics</a></li>
       <li><a href="#projects">Projects</a></li>
       <li><a href="#certificates">Certificates</a></li>
+      <li><a href="#skills">Skills</a></li>
       <li><a href="#contact">Contact</a></li>
-      <li><a href="javascript:void(0)" class="view-toggle-link" aria-label="Toggle View Mode"><span>📱Mobile
-            View</span></a></li>
     </ul>
 
     <button class="hamburger" aria-label="Menu">
@@ -66,17 +71,14 @@
     </button>
   </nav>
 
-
-
   <!-- Mobile Nav -->
   <div id="mobile-nav-menu">
     <a href="#about">About</a>
-    <a href="#skills">Skills</a>
+    <a href="#academics">Academics</a>
     <a href="#projects">Projects</a>
     <a href="#certificates">Certificates</a>
-    <a href="#resume">Resume</a>
+    <a href="#skills">Skills</a>
     <a href="#contact">Contact</a>
-    <a href="javascript:void(0)" class="view-toggle-link" aria-label="Toggle View Mode"><span>📱Mobile View</span></a>
     <a href="admin/admin.html" style="color: var(--accent-1);">⚙ Admin</a>
   </div>
 
@@ -84,9 +86,9 @@
   <section id="hero">
     <canvas id="canvas-bg"></canvas>
     <div class="hero-content">
-      <p class="hero-greeting">👋 Hello World, I'm</p>
+      <p class="hero-greeting">HELLO WORLD, I'M SOFTWARE ENGINEER</p>
       <h1 class="hero-name">
-        <span class="name-line1">VERESHWARAPU</span><br>
+        <span class="name-line1">Vereshwarapu</span><br>
         <span class="name-line2">PRAVEEN KUMAR</span>
       </h1>
       <div class="hero-typing-wrapper">
@@ -180,6 +182,123 @@
           <div class="stat-number" data-target="3" data-suffix="+">0</div>
           <div class="stat-label">Hackathons</div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== ACADEMICS SECTION ======================== -->
+  <section id="academics">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-label">// education_timeline</span>
+        <h2 class="section-title">Academics</h2>
+        <div class="section-divider">
+          <div class="divider-line"></div>
+          <div class="divider-dot"></div>
+          <div class="divider-line right"></div>
+        </div>
+      </div>
+
+      <div class="academics-grid">
+        <!-- Academic Item 1: B.Tech CSE -->
+        <div class="academic-card reveal">
+          <div class="academic-badge">2022 – Present</div>
+          <div class="academic-icon">🎓</div>
+          <div class="academic-details">
+            <h3 class="academic-degree">Bachelor of Technology in Computer Science Engineering</h3>
+            <div class="academic-field">NRI Institute of Technology, Agiripalli</div>
+            <p class="academic-desc">
+              Pursuing B.Tech in Computer Science and Engineering with focus on Software Engineering, Data Structures,
+              Web Development, and AI Application Systems.
+            </p>
+            <div class="academic-highlights">
+              <span class="academic-pill" style="font-weight:700;color:var(--color-text-primary);">CGPA: 8.39 /
+                10</span>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Academic Item 2: Class XII - MPC -->
+        <div class="academic-card reveal">
+          <div class="academic-badge">2024</div>
+          <div class="academic-icon">🏛️</div>
+          <div class="academic-details">
+            <h3 class="academic-degree">Class XII – MPC</h3>
+            <div class="academic-field">SR Junior College</div>
+            <p class="academic-desc">
+              Completed Higher Secondary Education specializing in Mathematics, Physics, and Chemistry (MPC) with strong
+              analytical core.
+            </p>
+            <div class="academic-highlights">
+              <span class="academic-pill" style="font-weight:700;color:var(--color-text-primary);">Score: 817
+                Marks</span>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Academic Item 3: Class X - SSC -->
+        <div class="academic-card reveal">
+          <div class="academic-badge">2022</div>
+          <div class="academic-icon">📜</div>
+          <div class="academic-details">
+            <h3 class="academic-degree">Class X – SSC</h3>
+            <div class="academic-field">Samskruthi Concept High School</div>
+            <p class="academic-desc">
+              Passed Secondary School Certificate (SSC) board examinations with high distinction and foundational
+              academic excellence.
+            </p>
+            <div class="academic-highlights">
+              <span class="academic-pill" style="font-weight:700;color:var(--color-text-primary);">Percentage:
+                93%</span>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== PROJECTS SECTION ======================== -->
+  <section id="projects">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-label">// my_work</span>
+        <h2 class="section-title">Featured Projects</h2>
+        <div class="section-divider">
+          <div class="divider-line"></div>
+          <div class="divider-dot"></div>
+          <div class="divider-line right"></div>
+        </div>
+      </div>
+
+      <div class="projects-grid"></div>
+    </div>
+  </section>
+
+  <!-- ======================== CERTIFICATES SECTION ======================== -->
+  <section id="certificates">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-label">// verified_credentials</span>
+        <h2 class="section-title">Certifications & Achievements</h2>
+        <div class="section-divider">
+          <div class="divider-line"></div>
+          <div class="divider-dot"></div>
+          <div class="divider-line right"></div>
+        </div>
+      </div>
+
+      <!-- Certificates Grid -->
+      <div class="certs-grid" id="certs-grid"></div>
+
+      <!-- Upload prompt -->
+      <div style="text-align:center;margin-top:2.5rem;">
+        <a href="admin/admin.html" class="btn-secondary"
+          style="display:inline-flex;align-items:center;gap:0.5rem;border-radius:50px;padding:0.7rem 1.6rem;">
+          ⚙ Manage Certificates in Admin
+        </a>
       </div>
     </div>
   </section>
@@ -301,90 +420,6 @@
     </div>
   </section>
 
-  <!-- ======================== PROJECTS SECTION ======================== -->
-  <section id="projects">
-    <div class="container">
-      <div class="section-header reveal">
-        <span class="section-label">// my_work</span>
-        <h2 class="section-title">Featured Projects</h2>
-        <div class="section-divider">
-          <div class="divider-line"></div>
-          <div class="divider-dot"></div>
-          <div class="divider-line right"></div>
-        </div>
-      </div>
-
-      <div class="projects-grid"></div>
-    </div>
-  </section>
-
-  <!-- ======================== CERTIFICATES SECTION ======================== -->
-  <section id="certificates">
-    <div class="container">
-      <div class="section-header reveal">
-        <span class="section-label">// verified_credentials</span>
-        <h2 class="section-title">Certifications & Achievements</h2>
-        <div class="section-divider">
-          <div class="divider-line"></div>
-          <div class="divider-dot"></div>
-          <div class="divider-line right"></div>
-        </div>
-      </div>
-
-      <!-- Certificates Grid -->
-      <div class="certs-grid" id="certs-grid"></div>
-
-      <!-- Upload prompt -->
-      <div style="text-align:center;margin-top:2.5rem;">
-        <a href="admin/admin.html" class="btn-secondary" style="display:inline-flex;align-items:center;gap:0.5rem;border-radius:50px;padding:0.7rem 1.6rem;">
-          ⚙ Manage Certificates in Admin
-        </a>
-      </div>
-    </div>
-  </section>
-
-
-
-  <!-- ======================== RESUME SECTION ======================== -->
-  <section id="resume">
-    <div class="container">
-      <div class="section-header reveal">
-        <span class="section-label">// my_cv</span>
-        <h2 class="section-title">Resume</h2>
-        <div class="section-divider">
-          <div class="divider-line"></div>
-          <div class="divider-dot"></div>
-          <div class="divider-line right"></div>
-        </div>
-      </div>
-
-      <div class="resume-container">
-        <div class="resume-preview-card reveal">
-          <div class="resume-icon">📄</div>
-          <h3 class="resume-title">Vereshwarapu Praveen Kumar</h3>
-          <p class="resume-subtitle">B.Tech Student | Computer Science Engineer | India</p>
-          <div style="display:flex;justify-content:center;gap:2rem;margin-bottom:2rem;flex-wrap:wrap;">
-            <div style="text-align:center;">
-              <div style="font-family:var(--font-heading);font-size:1.5rem;color:var(--accent-1);">CGPA</div>
-              <div style="color:var(--text-secondary);font-size:0.85rem;">Academic Excellence</div>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-family:var(--font-heading);font-size:1.5rem;color:var(--accent-1);">CSE</div>
-              <div style="color:var(--text-secondary);font-size:0.85rem;">Specialization</div>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-family:var(--font-heading);font-size:1.5rem;color:var(--accent-1);">10+</div>
-              <div style="color:var(--text-secondary);font-size:0.85rem;">Projects</div>
-            </div>
-          </div>
-          <a href="javascript:void(0)" class="resume-download-btn resume-download-link">
-            ⬇ Download Resume (PDF)
-          </a>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ======================== CONTACT SECTION ======================== -->
   <section id="contact">
     <div class="container">
@@ -435,7 +470,8 @@
             <a href="https://github.com/vpraveen6070-cpu" target="_blank" class="social-icon-link" title="GitHub">
               🐙
             </a>
-            <a href="https://www.linkedin.com/in/vereshwarapu-praveen-kumar-2640b4401" target="_blank" class="social-icon-link" title="LinkedIn">
+            <a href="https://www.linkedin.com/in/vereshwarapu-praveen-kumar-2640b4401" target="_blank"
+              class="social-icon-link" title="LinkedIn">
               💼
             </a>
             <a href="mailto:v.praveen.6070@gmail.com" target="_blank" class="social-icon-link" title="Email">
@@ -478,7 +514,7 @@
   <!-- ======================== FOOTER ======================== -->
   <footer>
     <div class="footer-content">
-      <div class="footer-logo">PK</div>
+      <div class="footer-logo"><img src="images/pk-logo.png" alt="PK Logo" class="brand-logo-img footer-logo-img"></div>
       <p class="footer-text">
         Designed & Built with <span>❤️</span> by
         <span>VERESHWARAPU PRAVEEN KUMAR</span>
@@ -488,7 +524,8 @@
       </p>
       <div class="footer-social">
         <a href="https://github.com/vpraveen6070-cpu" target="_blank" class="social-icon-link">🐙</a>
-        <a href="https://www.linkedin.com/in/vereshwarapu-praveen-kumar-2640b4401" target="_blank" class="social-icon-link" title="LinkedIn">💼</a>
+        <a href="https://www.linkedin.com/in/vereshwarapu-praveen-kumar-2640b4401" target="_blank"
+          class="social-icon-link" title="LinkedIn">💼</a>
         <a href="mailto:v.praveen.6070@gmail.com" target="_blank" class="social-icon-link">📧</a>
       </div>
       <p class="footer-text" style="font-size:0.75rem;margin-top:1rem;opacity:0.6;">
@@ -512,7 +549,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="js/firebase-config.js?v=12"></script>
-  
+
   <script src="js/upload.js?v=15"></script>
   <script src="js/theme-switcher.js?v=12"></script>
   <script src="js/animations.js?v=12"></script>

@@ -51,13 +51,87 @@ window.addEventListener('portfolioDataChanged', () => {
   triggerGlobalReRender();
 });
 
+// =============================================
+// INDEXEDDB ENGINE (Unlimited Local Storage)
+// =============================================
+const IDB_NAME = 'PortfolioStorageDB';
+const IDB_STORE = 'portfolio_store';
+
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      return reject(new Error('IndexedDB not supported'));
+    }
+    const request = indexedDB.open(IDB_NAME, 1);
+    request.onupgradeneeded = (e) => {
+      const dbInstance = e.target.result;
+      if (!dbInstance.objectStoreNames.contains(IDB_STORE)) {
+        dbInstance.createObjectStore(IDB_STORE);
+      }
+    };
+    request.onsuccess = (e) => resolve(e.target.result);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+const IDB = {
+  get: async (key) => {
+    try {
+      const dbInstance = await openIDB();
+      return new Promise((resolve) => {
+        const tx = dbInstance.transaction(IDB_STORE, 'readonly');
+        const store = tx.objectStore(IDB_STORE);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result !== undefined ? req.result : null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (e) {
+      return null;
+    }
+  },
+  set: async (key, val) => {
+    try {
+      const dbInstance = await openIDB();
+      return new Promise((resolve) => {
+        const tx = dbInstance.transaction(IDB_STORE, 'readwrite');
+        const store = tx.objectStore(IDB_STORE);
+        const req = store.put(val, key);
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => resolve(false);
+      });
+    } catch (e) {
+      return false;
+    }
+  },
+  remove: async (key) => {
+    try {
+      const dbInstance = await openIDB();
+      return new Promise((resolve) => {
+        const tx = dbInstance.transaction(IDB_STORE, 'readwrite');
+        const store = tx.objectStore(IDB_STORE);
+        const req = store.delete(key);
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => resolve(false);
+      });
+    } catch (e) {
+      return false;
+    }
+  }
+};
+
 const Storage = {
   get: async (key) => {
-    let localData = [];
-    try {
-      localData = JSON.parse(localStorage.getItem(key)) || [];
-    } catch {
-      localData = [];
+    let localData = await IDB.get(key);
+
+    if (localData === null) {
+      try {
+        localData = JSON.parse(localStorage.getItem(key)) || [];
+        if (Array.isArray(localData) && localData.length > 0) {
+          await IDB.set(key, localData);
+        }
+      } catch (e) {
+        localData = [];
+      }
     }
 
     if (db) {
@@ -65,23 +139,30 @@ const Storage = {
         const snapshot = await db.collection(key).get();
         const firestoreDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         if (firestoreDocs.length > 0) {
-          // Firestore has data — treat it as the source of truth
-          localStorage.setItem(key, JSON.stringify(firestoreDocs));
+          await IDB.set(key, firestoreDocs);
+          try { localStorage.setItem(key, JSON.stringify(firestoreDocs)); } catch (e) {}
           return firestoreDocs;
+        } else if (localData && (Array.isArray(localData) ? localData.length > 0 : true)) {
+          // Keep localData if Firestore is empty
         } else {
-          // Firestore is empty — clear localStorage to match (don't re-push)
-          localStorage.setItem(key, JSON.stringify([]));
+          await IDB.set(key, []);
+          try { localStorage.setItem(key, JSON.stringify([])); } catch (e) {}
           return [];
         }
       } catch (err) {
-        console.warn("Firestore fetch error, falling back to localStorage:", err);
+        console.warn("Firestore fetch error, falling back to IndexedDB:", err);
       }
     }
-    return localData;
+    return localData || [];
   },
   
   set: async (key, data) => {
-    localStorage.setItem(key, JSON.stringify(data));
+    await IDB.set(key, data);
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (quotaErr) {
+      console.warn("localStorage full, stored in IndexedDB (Unlimited mode) ✓");
+    }
     dispatchStorageChange(key);
     if (db) {
       try {
@@ -103,19 +184,24 @@ const Storage = {
   add: async (key, item) => {
     item.id = String(item.id || (Date.now() + Math.floor(Math.random() * 1000000)));
 
-    const arr = JSON.parse(localStorage.getItem(key)) || [];
+    let arr = await IDB.get(key);
+    if (!arr || !Array.isArray(arr)) {
+      try {
+        arr = JSON.parse(localStorage.getItem(key)) || [];
+      } catch (e) {
+        arr = [];
+      }
+    }
+
     if (!arr.some(i => String(i.id) === String(item.id))) {
       arr.unshift(item);
+      await IDB.set(key, arr);
       try {
         localStorage.setItem(key, JSON.stringify(arr));
-        dispatchStorageChange(key);
       } catch (quotaErr) {
-        console.error("Storage quota exceeded:", quotaErr);
-        if (window.showAdminToast) {
-          window.showAdminToast("Storage full! Remove older files to add more.", "error");
-        }
-        return null;
+        console.warn("localStorage full, saved safely in IndexedDB (Unlimited storage mode) ✓");
       }
+      dispatchStorageChange(key);
     }
 
     if (db && (key === 'portfolio-certs' || key === 'portfolio-projects' || key === 'portfolio-videos' || key === 'portfolio-messages')) {
@@ -123,7 +209,7 @@ const Storage = {
         await db.collection(key).doc(item.id).set(item);
         console.log(`Saved ${key}/${item.id} to Firestore 🔥`);
       } catch (err) {
-        console.warn("Firestore add error (saved to localStorage):", err);
+        console.warn("Firestore add error (saved locally):", err);
       }
     }
     return item;
@@ -131,8 +217,19 @@ const Storage = {
   
   remove: async (key, id) => {
     const stringId = String(id);
-    const arr = (JSON.parse(localStorage.getItem(key)) || []).filter(i => String(i.id) !== stringId);
-    localStorage.setItem(key, JSON.stringify(arr));
+    let arr = await IDB.get(key);
+    if (!arr || !Array.isArray(arr)) {
+      try {
+        arr = JSON.parse(localStorage.getItem(key)) || [];
+      } catch (e) {
+        arr = [];
+      }
+    }
+    arr = arr.filter(i => String(i.id) !== stringId);
+    await IDB.set(key, arr);
+    try {
+      localStorage.setItem(key, JSON.stringify(arr));
+    } catch (e) {}
     dispatchStorageChange(key);
 
     if (db) {
@@ -147,7 +244,8 @@ const Storage = {
   },
 
   clear: async (key) => {
-    localStorage.setItem(key, JSON.stringify([]));
+    await IDB.remove(key);
+    try { localStorage.setItem(key, JSON.stringify([])); } catch (e) {}
     dispatchStorageChange(key);
     if (db) {
       try {
@@ -167,7 +265,8 @@ const Storage = {
   clearAll: async () => {
     const keys = ['portfolio-certs', 'portfolio-projects', 'portfolio-videos', 'portfolio-messages', 'portfolio-resume'];
     for (const key of keys) {
-      localStorage.setItem(key, JSON.stringify([]));
+      await IDB.remove(key);
+      try { localStorage.setItem(key, JSON.stringify([])); } catch (e) {}
       dispatchStorageChange(key);
       if (db) {
         try {
@@ -193,7 +292,7 @@ const Storage = {
 // =============================================
 // IMAGE COMPRESSION & FILE READER UTILITIES
 // =============================================
-function compressImage(file, maxWidth = 1800, maxHeight = 1800, quality = 0.92) {
+function compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
   return new Promise((resolve) => {
     if (!file.type || !file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -340,12 +439,10 @@ const DEFAULT_CERTS = [
 async function getCerts() {
   let local = [];
   try {
-    const raw = localStorage.getItem('portfolio-certs');
-    if (!raw) {
-      localStorage.setItem('portfolio-certs', JSON.stringify(DEFAULT_CERTS));
+    local = await Storage.get('portfolio-certs');
+    if (!local || local.length === 0) {
+      await Storage.set('portfolio-certs', DEFAULT_CERTS);
       local = DEFAULT_CERTS;
-    } else {
-      local = JSON.parse(raw) || [];
     }
   } catch (e) { local = DEFAULT_CERTS; }
   
@@ -597,7 +694,17 @@ function initDragDrop(dropZoneId, onFileDrop) {
 // =============================================
 // PROJECTS MANAGEMENT
 // =============================================
-const DEFAULT_PROJECTS = [];
+const DEFAULT_PROJECTS = [
+  {
+    id: 'property-nest-featured',
+    title: 'PropertyNest — Real Estate Listing Platform',
+    desc: 'PropertyNest is a responsive real-estate listing platform that allows users to browse, search, filter and sort property listings, view detailed property information and submit buyer enquiries. Sellers and agents can also publish new property listings. The project includes a Node.js JSON API, SQLite database storage, server-side validation and automated API testing.',
+    tech: 'HTML5, CSS3, JavaScript, Node.js, SQLite, REST API, GitHub Pages',
+    github: 'https://github.com/vereshwarapu/property-nest',
+    demo: '#',
+    icon: '💻'
+  }
+];
 
 async function getProjects() {
   let local = [];
@@ -611,16 +718,21 @@ async function getProjects() {
     return !text.includes('automated test') && !text.includes('cloud sync') && !text.includes('test project');
   };
 
-  const cleanLocal = local.filter(cleanFilter);
+  let cleanLocal = local.filter(cleanFilter);
 
-  Storage.get('portfolio-projects').then(stored => {
+  try {
+    const stored = await Storage.get('portfolio-projects');
     if (stored && Array.isArray(stored)) {
       const cleaned = stored.filter(cleanFilter);
-      if (cleaned.length !== cleanLocal.length) {
-        renderProjects();
+      if (cleaned.length > 0) {
+        cleanLocal = cleaned;
       }
     }
-  }).catch(() => {});
+  } catch (e) {}
+
+  if (cleanLocal.length === 0) {
+    return DEFAULT_PROJECTS;
+  }
 
   return cleanLocal;
 }
@@ -632,11 +744,11 @@ async function renderProjects() {
 
   if (!projects || projects.length === 0) {
     grid.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 3.5rem 2rem; background: var(--bg-card, rgba(15,15,15,0.85)); border: 1px dashed var(--border-color, rgba(212,175,55,0.3)); border-radius: 20px; backdrop-filter: blur(10px); max-width: 580px; margin: 0 auto;">
+      <div style="grid-column: 1 / -1; text-align: center; padding: 3.5rem 2rem; background: var(--color-surface-container, #ffffff); border: 1px dashed var(--color-border-subtle, #e2ddd3); border-radius: 20px; max-width: 580px; margin: 0 auto;">
         <div style="font-size: 3rem; margin-bottom: 0.8rem;">💻</div>
-        <h3 style="color: var(--text-primary, #ffffff); font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">No Projects Added Yet</h3>
-        <p style="color: var(--text-secondary, #a0a0a0); font-size: 0.9rem; line-height: 1.6; margin: 0 auto 1.5rem; max-width: 420px;">Add your featured projects in the Admin Panel to showcase them here.</p>
-        <a href="admin/admin.html" class="btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.6rem; font-size: 0.88rem; border-radius: 50px; font-weight: 600;">
+        <h3 style="color: var(--color-text-primary, #0a0a0a); font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">No Projects Added Yet</h3>
+        <p style="color: var(--color-text-secondary, #666666); font-size: 0.9rem; line-height: 1.6; margin: 0 auto 1.5rem; max-width: 420px;">Add your featured projects in the Admin Panel to showcase them here.</p>
+        <a href="admin/admin.html" class="project-link link-demo" style="display: inline-flex; align-items: center; gap: 0.5rem;">
           ⚙ Add Projects in Admin
         </a>
       </div>
@@ -652,7 +764,7 @@ async function renderProjects() {
       .join('');
 
     const githubLink = p.github ? `<a href="${p.github}" class="project-link link-github" target="_blank">🐙 GitHub</a>` : '';
-    const demoLink = (p.demo && p.demo !== '#') ? `<a href="${p.demo}" class="project-link link-demo" target="_blank">🚀 Live Demo</a>` : '';
+    const demoLink = p.demo ? `<a href="${p.demo}" class="project-link link-demo" target="_blank">🚀 Live Demo</a>` : '';
 
     return `
       <div class="project-card" data-project-id="${p.id}">

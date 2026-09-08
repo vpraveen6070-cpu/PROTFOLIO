@@ -26,10 +26,6 @@ function setViewMode(mode) {
   }
   
   localStorage.setItem('portfolio-view-mode', mode);
-  
-  if (window.showToast) {
-    showToast(`${mode.charAt(0).toUpperCase() + mode.slice(1)} View enabled`, 'success');
-  }
 }
 
 function toggleViewMode() {
