@@ -208,23 +208,10 @@ const Storage = {
           .filter(doc => !deletedSet.has(String(doc.id)))
           .map(doc => ({ id: doc.id, ...doc.data() }));
 
-        const mergedMap = new Map();
-        firestoreDocs.forEach(item => {
-          if (item && item.id) mergedMap.set(String(item.id), item);
-        });
-
-        // Add local offline-created items that are not in Firestore and not deleted
-        localData.forEach(item => {
-          if (item && item.id && !deletedSet.has(String(item.id)) && !mergedMap.has(String(item.id))) {
-            mergedMap.set(String(item.id), item);
-            db.collection(key).doc(String(item.id)).set(item).catch(() => {});
-          }
-        });
-
-        const merged = Array.from(mergedMap.values());
-        await IDB.set(key, merged);
-        try { localStorage.setItem(key, JSON.stringify(merged)); } catch (e) {}
-        return merged;
+        // Firestore is authoritative when connected: update local storage to match cloud
+        await IDB.set(key, firestoreDocs);
+        try { localStorage.setItem(key, JSON.stringify(firestoreDocs)); } catch (e) {}
+        return firestoreDocs;
       } catch (err) {
         console.warn("Firestore fetch error, falling back to local storage:", err);
       }
@@ -644,26 +631,20 @@ async function getCerts() {
   const deletedSet = await getDeletedIds('portfolio-certs');
   try {
     local = await Storage.get('portfolio-certs');
-    if ((!local || local.length === 0) && !hasInit && localStorage.getItem('portfolio-certs') === null) {
+    // Only seed local defaults if database is not present and storage was never initialized
+    if (!db && (!local || local.length === 0) && !hasInit && localStorage.getItem('portfolio-certs') === null) {
       const initialCerts = DEFAULT_CERTS.filter(c => !deletedSet.has(String(c.id)));
       if (initialCerts.length > 0) {
         await Storage.set('portfolio-certs', initialCerts);
         local = initialCerts;
       }
       localStorage.setItem('portfolio-certs-init', 'true');
-    } else if (!hasInit) {
+    } else {
       localStorage.setItem('portfolio-certs-init', 'true');
     }
   } catch (e) { local = []; }
   
-  const cleanFilter = c => {
-    if (!c || !c.id) return false;
-    if (deletedSet.has(String(c.id))) return false;
-    const text = JSON.stringify(c).toLowerCase();
-    return !text.includes('automated test') && !text.includes('cloud sync') && !text.includes('test project');
-  };
-
-  return (local || []).filter(cleanFilter);
+  return (local || []).filter(c => c && c.id && !deletedSet.has(String(c.id)));
 }
 
 async function renderUploadedCerts() {
@@ -696,7 +677,7 @@ async function renderUploadedCerts() {
       const converted = await convertPdfToImage(cert.file);
       if (converted) {
         cert.file = converted;
-        cert.type = 'image/png';
+        cert.type = 'image/jpeg';
         await Storage.add('portfolio-certs', cert);
       }
     }
@@ -764,8 +745,6 @@ async function renderUploadedCerts() {
     `;
   }).join('');
 
-  // Fix: certificates are created asynchronously,
-  // so activate them after they enter the DOM
   requestAnimationFrame(() => {
     grid.querySelectorAll('.cert-reveal').forEach((card, index) => {
       card.style.transitionDelay = `${index * 80}ms`;
@@ -1011,26 +990,20 @@ async function getProjects() {
       local = JSON.parse(localStorage.getItem('portfolio-projects')) || [];
     }
 
-    if ((!local || local.length === 0) && !hasInit && localStorage.getItem('portfolio-projects') === null) {
+    // Only seed local defaults if database is not present and storage was never initialized
+    if (!db && (!local || local.length === 0) && !hasInit && localStorage.getItem('portfolio-projects') === null) {
       const initialProjects = DEFAULT_PROJECTS.filter(p => !deletedSet.has(String(p.id)));
       if (initialProjects.length > 0) {
         await Storage.set('portfolio-projects', initialProjects);
         local = initialProjects;
       }
       localStorage.setItem('portfolio-projects-init', 'true');
-    } else if (!hasInit) {
+    } else {
       localStorage.setItem('portfolio-projects-init', 'true');
     }
   } catch (e) { local = []; }
 
-  const cleanFilter = p => {
-    if (!p || !p.id) return false;
-    if (deletedSet.has(String(p.id))) return false;
-    const text = JSON.stringify(p).toLowerCase();
-    return !text.includes('automated test') && !text.includes('cloud sync') && !text.includes('test project');
-  };
-
-  return (local || []).filter(cleanFilter);
+  return (local || []).filter(p => p && p.id && !deletedSet.has(String(p.id)));
 }
 
 async function renderProjects() {
@@ -1109,23 +1082,8 @@ function initFirestoreListeners() {
           .filter(doc => !deletedSet.has(String(doc.id)))
           .map(doc => ({ id: doc.id, ...doc.data() }));
 
-        const currentIDB = (await IDB.get(key)) || [];
-        const mergedMap = new Map();
-        firestoreDocs.forEach(item => {
-          if (item && item.id) mergedMap.set(String(item.id), item);
-        });
-
-        if (Array.isArray(currentIDB)) {
-          currentIDB.forEach(item => {
-            if (item && item.id && !deletedSet.has(String(item.id)) && !mergedMap.has(String(item.id))) {
-              // Local pending item
-              mergedMap.set(String(item.id), item);
-            }
-          });
-        }
-        const merged = Array.from(mergedMap.values());
-        await IDB.set(key, merged);
-        try { localStorage.setItem(key, JSON.stringify(merged)); } catch (e) {}
+        await IDB.set(key, firestoreDocs);
+        try { localStorage.setItem(key, JSON.stringify(firestoreDocs)); } catch (e) {}
         triggerGlobalReRender();
       }, err => {
         console.warn(`Firestore onSnapshot warning for ${key}:`, err);
@@ -1163,40 +1121,6 @@ function initFirestoreListeners() {
   } catch (e) {}
 }
 
-// =============================================
-// CLOUD SYNC & CLEANUP UTILITIES
-// =============================================
-async function removeTestItems() {
-  try {
-    const keys = ['portfolio-projects', 'portfolio-certs', 'portfolio-messages'];
-    for (const key of keys) {
-      const deletedSet = await getDeletedIds(key);
-      const stored = (await Storage.get(key)) || [];
-      const cleaned = stored.filter(item => {
-        if (!item || !item.id) return false;
-        const idStr = String(item.id);
-        if (deletedSet.has(idStr)) return false;
-        if (idStr.startsWith('default-proj-') || idStr.startsWith('default-cert-')) return false;
-        const text = JSON.stringify(item).toLowerCase();
-        return !text.includes('automated test') && !text.includes('cloud sync') && !text.includes('test project');
-      });
-
-      if (cleaned.length !== stored.length) {
-        localStorage.setItem(key, JSON.stringify(cleaned));
-        await IDB.set(key, cleaned);
-        const removed = stored.filter(i => !cleaned.includes(i));
-        for (const r of removed) {
-          if (r && r.id) {
-            await Storage.remove(key, r.id).catch(() => {});
-          }
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("removeTestItems error:", e);
-  }
-}
-
 async function syncAllToCloud() {
   if (!db) return false;
   try {
@@ -1230,15 +1154,11 @@ async function syncAllToCloud() {
 // INIT ON PAGE LOAD
 // =============================================
 document.addEventListener('DOMContentLoaded', () => {
+  initFirestoreListeners();
   renderUploadedCerts();
   renderUploadedVideos();
   renderUploadedResume();
   renderProjects();
-
-  setTimeout(async () => {
-    await removeTestItems();
-    initFirestoreListeners();
-  }, 100);
 });
 
 window.dispatchStorageChange = dispatchStorageChange;
@@ -1250,5 +1170,5 @@ window.PortfolioUpload = {
   renderUploadedCerts, renderUploadedVideos, renderUploadedResume,
   renderProjects, getProjects, DEFAULT_PROJECTS,
   getCerts, DEFAULT_CERTS, compressImage, dispatchStorageChange, triggerGlobalReRender,
-  Storage, openVideoModal, db, syncAllToCloud, removeTestItems
+  Storage, openVideoModal, db, syncAllToCloud
 };
