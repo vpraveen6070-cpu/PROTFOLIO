@@ -156,32 +156,10 @@ const Storage = {
         const snapshot = await db.collection(key).get();
         const firestoreDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        if (firestoreDocs.length > 0) {
-          // Merge strategy: keep all cloud docs, plus keep any locally saved items not yet in cloud!
-          const mergedMap = new Map();
-          firestoreDocs.forEach(item => {
-            if (item && item.id) mergedMap.set(String(item.id), item);
-          });
-          localData.forEach(item => {
-            if (item && item.id && !mergedMap.has(String(item.id))) {
-              mergedMap.set(String(item.id), item);
-              // Background sync to Firestore
-              db.collection(key).doc(String(item.id)).set(item).catch(() => {});
-            }
-          });
-          const merged = Array.from(mergedMap.values());
-          await IDB.set(key, merged);
-          try { localStorage.setItem(key, JSON.stringify(merged)); } catch (e) {}
-          return merged;
-        } else if (localData.length > 0) {
-          // Firestore is empty but local has items: upload local items to Firestore
-          for (const item of localData) {
-            if (item && item.id) {
-              db.collection(key).doc(String(item.id)).set(item).catch(() => {});
-            }
-          }
-          return localData;
-        }
+        // Firestore docs are authoritative
+        await IDB.set(key, firestoreDocs);
+        try { localStorage.setItem(key, JSON.stringify(firestoreDocs)); } catch (e) {}
+        return firestoreDocs;
       } catch (err) {
         console.warn("Firestore fetch error, falling back to local storage:", err);
       }
@@ -263,7 +241,6 @@ const Storage = {
     try {
       localStorage.setItem(key, JSON.stringify(arr));
     } catch (e) {}
-    dispatchStorageChange(key);
 
     if (db) {
       try {
@@ -273,6 +250,7 @@ const Storage = {
         console.warn("Firestore delete error:", err);
       }
     }
+    dispatchStorageChange(key);
     return arr;
   },
 
@@ -902,24 +880,9 @@ function initFirestoreListeners() {
     try {
       db.collection(key).onSnapshot(async snapshot => {
         const firestoreDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (firestoreDocs.length > 0) {
-          const currentIDB = (await IDB.get(key)) || [];
-          const mergedMap = new Map();
-          firestoreDocs.forEach(item => {
-            if (item && item.id) mergedMap.set(String(item.id), item);
-          });
-          if (Array.isArray(currentIDB)) {
-            currentIDB.forEach(item => {
-              if (item && item.id && !mergedMap.has(String(item.id))) {
-                mergedMap.set(String(item.id), item);
-              }
-            });
-          }
-          const merged = Array.from(mergedMap.values());
-          await IDB.set(key, merged);
-          try { localStorage.setItem(key, JSON.stringify(merged)); } catch (e) {}
-          triggerGlobalReRender();
-        }
+        await IDB.set(key, firestoreDocs);
+        try { localStorage.setItem(key, JSON.stringify(firestoreDocs)); } catch (e) {}
+        triggerGlobalReRender();
       }, err => {
         console.warn(`Firestore onSnapshot warning for ${key}:`, err);
       });
@@ -1012,7 +975,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(async () => {
     await removeTestItems();
     initFirestoreListeners();
-    syncAllToCloud().catch(console.warn);
   }, 100);
 });
 
