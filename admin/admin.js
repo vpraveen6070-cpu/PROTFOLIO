@@ -125,16 +125,17 @@ updateDateTime();
 // =============================================
 async function updateStats() {
   if (!window.PortfolioUpload) return;
-  const certs = await window.PortfolioUpload.Storage.get('portfolio-certs');
-  const projects = await window.PortfolioUpload.Storage.get('portfolio-projects');
+  const certs = window.PortfolioUpload.getCerts ? await window.PortfolioUpload.getCerts() : await window.PortfolioUpload.Storage.get('portfolio-certs');
+  const projects = window.PortfolioUpload.getProjects ? await window.PortfolioUpload.getProjects() : await window.PortfolioUpload.Storage.get('portfolio-projects');
 
   const certCountEl = document.getElementById('cert-count');
-  if (certCountEl) certCountEl.textContent = certs.length;
+  if (certCountEl) certCountEl.textContent = (certs && certs.length) || 0;
 
   const projCountEl = document.getElementById('project-count');
-  if (projCountEl) projCountEl.textContent = projects.length;
+  if (projCountEl) projCountEl.textContent = (projects && projects.length) || 0;
 
-  const resume = localStorage.getItem('portfolio-resume');
+  const isDeleted = localStorage.getItem('portfolio-resume-deleted') === 'true';
+  const resume = isDeleted ? null : localStorage.getItem('portfolio-resume');
   const resumeStat = document.getElementById('resume-status-text');
   if (resumeStat) {
     resumeStat.textContent = resume ? 'ON' : 'OFF';
@@ -143,7 +144,23 @@ async function updateStats() {
 
   const messages = await window.PortfolioUpload.Storage.get('portfolio-messages');
   const msgCountEl = document.getElementById('message-count');
-  if (msgCountEl) msgCountEl.textContent = messages.length;
+  if (msgCountEl) msgCountEl.textContent = (messages && messages.length) || 0;
+
+  const cloudStatusEl = document.getElementById('cloud-sync-status');
+  if (cloudStatusEl) {
+    const isCloud = !!(window.PortfolioUpload && window.PortfolioUpload.db);
+    if (isCloud) {
+      cloudStatusEl.innerHTML = '🔥 Cloud Synced';
+      cloudStatusEl.style.color = '#22c55e';
+      cloudStatusEl.style.borderColor = 'rgba(34,197,94,0.3)';
+      cloudStatusEl.style.background = 'rgba(34,197,94,0.1)';
+    } else {
+      cloudStatusEl.innerHTML = '⚠️ Local Mode';
+      cloudStatusEl.style.color = '#eab308';
+      cloudStatusEl.style.borderColor = 'rgba(234,179,8,0.3)';
+      cloudStatusEl.style.background = 'rgba(234,179,8,0.1)';
+    }
+  }
 }
 
 // =============================================
@@ -205,12 +222,8 @@ async function deleteCert(id) {
     } catch (e) { }
   }
 
-  if (typeof window.dispatchStorageChange === 'function') {
-    window.dispatchStorageChange('portfolio-certs');
-  }
-
   await renderAdminCerts();
-  if (typeof updateStats === 'function') await updateStats();
+  await updateStats();
   if (window.PortfolioUpload && window.PortfolioUpload.renderUploadedCerts) {
     await window.PortfolioUpload.renderUploadedCerts();
   }
@@ -277,12 +290,8 @@ async function deleteMessage(id) {
     } catch (e) { }
   }
 
-  if (typeof window.dispatchStorageChange === 'function') {
-    window.dispatchStorageChange('portfolio-messages');
-  }
-
   await renderAdminMessages();
-  if (typeof updateStats === 'function') await updateStats();
+  await updateStats();
   showAdminToast('Message deleted ✓');
 }
 window.deleteMessage = deleteMessage;
@@ -332,7 +341,8 @@ async function processCertFiles(files) {
 // RESUME MANAGEMENT
 // =============================================
 function renderAdminResume() {
-  const resumeData = localStorage.getItem('portfolio-resume');
+  const isDeleted = localStorage.getItem('portfolio-resume-deleted') === 'true';
+  const resumeData = isDeleted ? null : localStorage.getItem('portfolio-resume');
   const container = document.getElementById('admin-resume-status');
   if (!container) return;
 
@@ -341,34 +351,41 @@ function renderAdminResume() {
     return;
   }
 
-  const resume = JSON.parse(resumeData);
-  container.innerHTML = `
-    <div class="admin-item-card" style="display:flex;align-items:center;padding:1rem;gap:1.5rem;">
-      <div style="font-size:2rem;">📄</div>
-      <div style="flex:1;">
-        <div class="admin-item-name">${resume.name}</div>
-        <div style="font-size:0.75rem;color:var(--text-secondary);">Uploaded on: ${new Date(resume.date).toLocaleDateString()}</div>
+  try {
+    const resume = JSON.parse(resumeData);
+    container.innerHTML = `
+      <div class="admin-item-card" style="display:flex;align-items:center;padding:1rem;gap:1.5rem;">
+        <div style="font-size:2rem;">📄</div>
+        <div style="flex:1;">
+          <div class="admin-item-name">${resume.name || 'Resume'}</div>
+          <div style="font-size:0.75rem;color:var(--text-secondary);">Uploaded on: ${resume.date ? new Date(resume.date).toLocaleDateString() : 'Recent'}</div>
+        </div>
+        <button class="btn-secondary" style="border-color:#ef4444;color:#ef4444;" onclick="deleteResume()">🗑 Delete</button>
       </div>
-      <button class="btn-secondary" style="border-color:#ef4444;color:#ef4444;" onclick="deleteResume()">🗑 Delete</button>
-    </div>
-  `;
+    `;
+  } catch (e) {
+    container.innerHTML = '<p style="color:var(--text-secondary);font-size:0.9rem;">No custom resume uploaded. Using default file.</p>';
+  }
 }
 
 async function deleteResume() {
   if (confirm('Are you sure you want to delete the custom resume and revert to default?')) {
     localStorage.removeItem('portfolio-resume');
-    if (window.PortfolioUpload && window.PortfolioUpload.db) {
+    localStorage.setItem('portfolio-resume-deleted', 'true');
+    if (window.PortfolioUpload && window.PortfolioUpload.Storage && window.PortfolioUpload.Storage.removeResume) {
+      await window.PortfolioUpload.Storage.removeResume();
+    } else if (window.PortfolioUpload && window.PortfolioUpload.db) {
       try {
         await window.PortfolioUpload.db.collection('portfolio-resume').doc('current-resume').delete();
       } catch (e) {
         console.warn("Firestore delete resume error:", e);
       }
     }
-    if (typeof window.dispatchStorageChange === 'function') {
-      window.dispatchStorageChange('portfolio-resume');
-    }
     renderAdminResume();
-    updateStats();
+    await updateStats();
+    if (window.PortfolioUpload && window.PortfolioUpload.renderUploadedResume) {
+      await window.PortfolioUpload.renderUploadedResume();
+    }
     showAdminToast('Resume deleted - reverted to default');
   }
 }
@@ -402,16 +419,11 @@ async function processResumeFile(file) {
     const result = await window.PortfolioUpload.handleResumeUpload(file);
     if (result) {
       renderAdminResume();
-      updateStats();
-      if (typeof window.dispatchStorageChange === 'function') {
-        window.dispatchStorageChange('portfolio-resume');
-      }
+      await updateStats();
       showAdminToast('Resume uploaded successfully!');
     }
   }
 }
-
-
 
 // =============================================
 // PROJECTS MANAGEMENT
@@ -477,12 +489,8 @@ async function deleteProject(id) {
     } catch (e) { }
   }
 
-  if (typeof window.dispatchStorageChange === 'function') {
-    window.dispatchStorageChange('portfolio-projects');
-  }
-
   await renderAdminProjects();
-  if (typeof updateStats === 'function') await updateStats();
+  await updateStats();
   if (window.PortfolioUpload && window.PortfolioUpload.renderProjects) {
     await window.PortfolioUpload.renderProjects();
   }
