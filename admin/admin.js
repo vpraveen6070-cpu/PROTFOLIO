@@ -205,6 +205,10 @@ async function deleteCert(id) {
     } catch (e) { }
   }
 
+  if (typeof window.dispatchStorageChange === 'function') {
+    window.dispatchStorageChange('portfolio-certs');
+  }
+
   await renderAdminCerts();
   if (typeof updateStats === 'function') await updateStats();
   if (window.PortfolioUpload && window.PortfolioUpload.renderUploadedCerts) {
