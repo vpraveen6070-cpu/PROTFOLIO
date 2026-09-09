@@ -16,7 +16,7 @@ function getSafeArray(key) {
 // =============================================
 // AUTHENTICATION
 // =============================================
-const DEFAULT_PASSWORD = 'praveen123';
+const DEFAULT_PASSWORD = '9133606070';
 
 function getAdminPassword() {
   return localStorage.getItem('admin-password') || DEFAULT_PASSWORD;
@@ -57,12 +57,12 @@ document.getElementById('admin-password')?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('admin-login-btn').click();
 });
 
-document.getElementById('pwd-toggle')?.addEventListener('click', function() {
+document.getElementById('pwd-toggle')?.addEventListener('click', function () {
   const pwdInput = document.getElementById('admin-password');
   const type = pwdInput.getAttribute('type') === 'password' ? 'text' : 'password';
   pwdInput.setAttribute('type', type);
   this.classList.toggle('visible');
-  
+
   // Update icon for visual feedback
   if (type === 'text') {
     this.innerHTML = `
@@ -153,6 +153,8 @@ async function renderAdminCerts() {
   if (!window.PortfolioUpload) return;
   const certs = window.PortfolioUpload.getCerts ? await window.PortfolioUpload.getCerts() : await window.PortfolioUpload.Storage.get('portfolio-certs');
   const list = document.getElementById('admin-certs-list');
+  const countEl = document.getElementById('admin-certs-count');
+  if (countEl) countEl.textContent = (certs && certs.length) || 0;
   if (!list) return;
 
   if (!certs || certs.length === 0) {
@@ -164,76 +166,30 @@ async function renderAdminCerts() {
     let thumbContent = '🏅';
     if (cert.icon) {
       thumbContent = `<span style="font-size:1.5rem;">${cert.icon}</span>`;
-    } else if (cert.type === 'application/pdf') {
+    } else if (cert.type === 'application/pdf' || (cert.file && cert.file.startsWith('data:application/pdf'))) {
       thumbContent = '📄';
     } else if (cert.file) {
       thumbContent = `<img src="${cert.file}" style="width:100%;height:100%;object-fit:cover;" alt="${cert.name}">`;
     }
 
+    const issuer = cert.issuer || 'Official Credential';
+    const cat = cert.category || 'General';
+    const date = cert.date || '';
+
     return `
-      <div class="admin-item-card" data-id="${cert.id}" style="cursor:pointer;" onclick="window.previewCertModal('${cert.id}')" title="Click to view popup preview">
+      <div class="admin-item-card" data-id="${cert.id}">
         <div class="admin-item-thumb-placeholder">
           ${thumbContent}
         </div>
         <div class="admin-item-info">
-          <div class="admin-item-name">${cert.name}</div>
+          <div class="admin-item-name" title="${cert.name}">${cert.name}</div>
+          ${date ? `<div style="font-size:0.72rem; color:var(--text-secondary); margin-top:0.2rem;">${date}</div>` : ''}
         </div>
-        <button class="admin-item-delete" onclick="event.stopPropagation(); window.deleteCert('${cert.id}')">✕ Delete</button>
+        <button class="admin-item-delete" onclick="window.deleteCert('${cert.id}')">✕ Delete</button>
       </div>
     `;
   }).join('');
 }
-
-async function previewCertModal(id) {
-  if (!window.PortfolioUpload) return;
-  const certs = window.PortfolioUpload.getCerts ? await window.PortfolioUpload.getCerts() : await window.PortfolioUpload.Storage.get('portfolio-certs');
-  const cert = certs.find(c => String(c.id) === String(id));
-  if (!cert) return;
-
-  const existing = document.getElementById('admin-cert-modal');
-  if (existing) existing.remove();
-
-  const modal = document.createElement('div');
-  modal.id = 'admin-cert-modal';
-  modal.style.cssText = `
-    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85);
-    z-index: 99999; display: flex; align-items: center; justify-content: center;
-    padding: 1.5rem; backdrop-filter: blur(8px); animation: fadeIn 0.25s ease forwards;
-  `;
-
-  let mediaHtml = '';
-  if (cert.file && (cert.file.startsWith('data:image') || cert.file.startsWith('http'))) {
-    mediaHtml = `<img src="${cert.file}" style="max-width:100%; max-height:320px; object-fit:contain; border-radius:12px; border:1px solid rgba(255,255,255,0.1); margin-bottom:1rem;" alt="${cert.name}">`;
-  } else if (cert.icon) {
-    mediaHtml = `<div style="width:110px; height:110px; border-radius:20px; background:${cert.bg || 'linear-gradient(135deg,var(--accent-1),var(--accent-2))'}; display:flex; align-items:center; justify-content:center; font-size:3.5rem; margin:0 auto 1rem auto; box-shadow:0 10px 30px rgba(0,0,0,0.5);">${cert.icon}</div>`;
-  } else {
-    mediaHtml = `<div style="font-size:4rem; margin-bottom:1rem; text-align:center;">📄</div>`;
-  }
-
-  const openLinkBtn = cert.file ? `<a href="${cert.file}" target="_blank" class="btn-primary" style="padding:0.5rem 1rem; font-size:0.85rem; text-decoration:none;">👁 View Full File</a>` : '';
-
-  modal.innerHTML = `
-    <div style="background: var(--bg-card, #12131c); border: 1px solid var(--border-color, rgba(255,255,255,0.15)); border-radius: 20px; max-width: 480px; width: 100%; padding: 2rem; box-shadow: 0 20px 50px rgba(0,0,0,0.7); position: relative; text-align: center; color: var(--text-primary, #ffffff);">
-      <button id="close-admin-cert-modal" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer;">✕</button>
-      ${mediaHtml}
-      <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.4rem;">${cert.name}</h3>
-      <p style="color: var(--accent-1); font-size: 0.9rem; margin-bottom: 0.2rem;">${cert.issuer || cert.category || 'Certificate'}</p>
-      <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1.5rem;">${cert.date ? 'Issued: ' + cert.date : ''}</p>
-      <div style="display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap;">
-        ${openLinkBtn}
-        <button class="btn-secondary" style="border-color:#ef4444; color:#ef4444; padding:0.5rem 1rem; font-size:0.85rem;" onclick="document.getElementById('admin-cert-modal').remove(); window.deleteCert('${cert.id}');">🗑 Delete</button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  modal.querySelector('#close-admin-cert-modal').addEventListener('click', () => modal.remove());
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.remove();
-  });
-}
-window.previewCertModal = previewCertModal;
 
 async function deleteCert(id) {
   if (!confirm('Delete this certificate?')) return;
@@ -246,7 +202,7 @@ async function deleteCert(id) {
     try {
       const arr = (JSON.parse(localStorage.getItem('portfolio-certs')) || []).filter(c => String(c.id) !== stringId);
       localStorage.setItem('portfolio-certs', JSON.stringify(arr));
-    } catch (e) {}
+    } catch (e) { }
   }
 
   await renderAdminCerts();
@@ -314,7 +270,11 @@ async function deleteMessage(id) {
     try {
       const arr = (JSON.parse(localStorage.getItem('portfolio-messages')) || []).filter(m => String(m.id) !== stringId);
       localStorage.setItem('portfolio-messages', JSON.stringify(arr));
-    } catch (e) {}
+    } catch (e) { }
+  }
+
+  if (typeof window.dispatchStorageChange === 'function') {
+    window.dispatchStorageChange('portfolio-messages');
   }
 
   await renderAdminMessages();
@@ -400,6 +360,9 @@ async function deleteResume() {
         console.warn("Firestore delete resume error:", e);
       }
     }
+    if (typeof window.dispatchStorageChange === 'function') {
+      window.dispatchStorageChange('portfolio-resume');
+    }
     renderAdminResume();
     updateStats();
     showAdminToast('Resume deleted - reverted to default');
@@ -436,6 +399,9 @@ async function processResumeFile(file) {
     if (result) {
       renderAdminResume();
       updateStats();
+      if (typeof window.dispatchStorageChange === 'function') {
+        window.dispatchStorageChange('portfolio-resume');
+      }
       showAdminToast('Resume uploaded successfully!');
     }
   }
@@ -487,7 +453,7 @@ document.getElementById('add-project-btn')?.addEventListener('click', async () =
   if (window.PortfolioUpload.renderProjects) {
     await window.PortfolioUpload.renderProjects();
   }
-  ['proj-title','proj-desc','proj-tech','proj-github','proj-demo'].forEach(id => {
+  ['proj-title', 'proj-desc', 'proj-tech', 'proj-github', 'proj-demo'].forEach(id => {
     document.getElementById(id).value = '';
   });
   showAdminToast('Project added!');
@@ -504,7 +470,11 @@ async function deleteProject(id) {
     try {
       const arr = (JSON.parse(localStorage.getItem('portfolio-projects')) || []).filter(p => String(p.id) !== stringId);
       localStorage.setItem('portfolio-projects', JSON.stringify(arr));
-    } catch (e) {}
+    } catch (e) { }
+  }
+
+  if (typeof window.dispatchStorageChange === 'function') {
+    window.dispatchStorageChange('portfolio-projects');
   }
 
   await renderAdminProjects();
@@ -583,6 +553,8 @@ async function confirmClearData() {
   if (confirm('⚠ This will PERMANENTLY delete all uploaded certificates, projects, videos, and messages from both Local and Cloud storage. Are you sure?')) {
     try {
       showAdminToast('Clearing all data...');
+      localStorage.setItem('portfolio-certs-init', 'true');
+      localStorage.setItem('portfolio-projects-init', 'true');
       if (window.PortfolioUpload && window.PortfolioUpload.Storage && window.PortfolioUpload.Storage.clearAll) {
         await window.PortfolioUpload.Storage.clearAll();
       } else {
@@ -591,6 +563,10 @@ async function confirmClearData() {
         localStorage.removeItem('portfolio-videos');
         localStorage.removeItem('portfolio-messages');
         localStorage.removeItem('portfolio-resume');
+      }
+
+      if (typeof window.dispatchStorageChange === 'function') {
+        ['portfolio-certs', 'portfolio-projects', 'portfolio-videos', 'portfolio-messages', 'portfolio-resume'].forEach(k => window.dispatchStorageChange(k));
       }
 
       if (window.PortfolioUpload) {
@@ -640,7 +616,7 @@ async function initAdmin() {
   setupResumeUpload();
   // Ensure view toggle reflects current state on the newly visible dashboard
   syncViewToggleUI();
-  
+
   // Apply saved theme
   const theme = localStorage.getItem('portfolio-theme') || 'neon';
   document.documentElement.setAttribute('data-theme', theme);
@@ -669,7 +645,7 @@ function syncViewToggleUI() {
   const isMobile = document.body.classList.contains('view-mobile');
   const links = document.querySelectorAll('.view-toggle-link');
   const modeInfo = isMobile ? VIEW_MODES.mobile : VIEW_MODES.desktop;
-  
+
   links.forEach(link => {
     link.innerHTML = `<span>${modeInfo.icon}${modeInfo.name}</span>`;
   });

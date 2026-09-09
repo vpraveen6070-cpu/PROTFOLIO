@@ -176,20 +176,24 @@ function initTiltCards() {
 window.initTiltCards = initTiltCards;
 
 // =============================================
-// CERTIFICATE FILTER
-// =============================================
 function initCertFilter() {
-  const filterBtns = document.querySelectorAll('.cert-filter-btn');
-  const certCards = document.querySelectorAll('.cert-card');
+  const filterContainer = document.getElementById('cert-filter-bar');
+  if (!filterContainer) return;
+  const filterBtns = filterContainer.querySelectorAll('.cert-filter-btn');
 
   filterBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      filterBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const filter = btn.getAttribute('data-filter');
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.addEventListener('click', () => {
+      filterContainer.querySelectorAll('.cert-filter-btn').forEach(b => b.classList.remove('active'));
+      newBtn.classList.add('active');
+      const filter = (newBtn.getAttribute('data-filter') || 'all').trim().toLowerCase();
+      const certCards = document.querySelectorAll('#certs-grid .cert-card');
 
       certCards.forEach(card => {
-        if (filter === 'all' || card.getAttribute('data-category') === filter) {
+        const cat = (card.getAttribute('data-category') || 'general').trim().toLowerCase();
+        if (filter === 'all' || cat === filter || cat.includes(filter) || filter.includes(cat)) {
           card.style.display = 'block';
           card.style.animation = 'fadeInUp 0.4s ease forwards';
         } else {
@@ -199,6 +203,7 @@ function initCertFilter() {
     });
   });
 }
+window.initCertFilter = initCertFilter;
 
 // =============================================
 // LIGHTBOX

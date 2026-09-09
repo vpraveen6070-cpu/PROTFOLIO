@@ -23,6 +23,16 @@ if (typeof firebase !== 'undefined' && window.firebaseConfig && window.firebaseC
   }
 }
 
+// Modern cross-tab broadcast channel for instantaneous real-time sync
+const syncChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('portfolio_sync') : null;
+if (syncChannel) {
+  syncChannel.onmessage = (event) => {
+    if (event && event.data && event.data.key) {
+      triggerGlobalReRender();
+    }
+  };
+}
+
 function triggerGlobalReRender() {
   if (typeof renderUploadedCerts === 'function') renderUploadedCerts();
   if (typeof renderProjects === 'function') renderProjects();
@@ -38,6 +48,11 @@ function dispatchStorageChange(key) {
   try {
     window.dispatchEvent(new CustomEvent('portfolioDataChanged', { detail: { key } }));
   } catch (e) {}
+  if (syncChannel) {
+    try {
+      syncChannel.postMessage({ key, timestamp: Date.now() });
+    } catch (e) {}
+  }
   triggerGlobalReRender();
 }
 
@@ -123,34 +138,52 @@ const Storage = {
   get: async (key) => {
     let localData = await IDB.get(key);
 
-    if (localData === null) {
+    if (localData === null || !Array.isArray(localData)) {
       try {
-        localData = JSON.parse(localStorage.getItem(key)) || [];
-        if (Array.isArray(localData) && localData.length > 0) {
+        const ls = JSON.parse(localStorage.getItem(key));
+        if (Array.isArray(ls) && ls.length > 0) {
+          localData = ls;
           await IDB.set(key, localData);
         }
       } catch (e) {
         localData = [];
       }
     }
+    if (!Array.isArray(localData)) localData = [];
 
     if (db) {
       try {
         const snapshot = await db.collection(key).get();
         const firestoreDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
         if (firestoreDocs.length > 0) {
-          await IDB.set(key, firestoreDocs);
-          try { localStorage.setItem(key, JSON.stringify(firestoreDocs)); } catch (e) {}
-          return firestoreDocs;
-        } else if (localData && (Array.isArray(localData) ? localData.length > 0 : true)) {
-          // Keep localData if Firestore is empty
-        } else {
-          await IDB.set(key, []);
-          try { localStorage.setItem(key, JSON.stringify([])); } catch (e) {}
-          return [];
+          // Merge strategy: keep all cloud docs, plus keep any locally saved items not yet in cloud!
+          const mergedMap = new Map();
+          firestoreDocs.forEach(item => {
+            if (item && item.id) mergedMap.set(String(item.id), item);
+          });
+          localData.forEach(item => {
+            if (item && item.id && !mergedMap.has(String(item.id))) {
+              mergedMap.set(String(item.id), item);
+              // Background sync to Firestore
+              db.collection(key).doc(String(item.id)).set(item).catch(() => {});
+            }
+          });
+          const merged = Array.from(mergedMap.values());
+          await IDB.set(key, merged);
+          try { localStorage.setItem(key, JSON.stringify(merged)); } catch (e) {}
+          return merged;
+        } else if (localData.length > 0) {
+          // Firestore is empty but local has items: upload local items to Firestore
+          for (const item of localData) {
+            if (item && item.id) {
+              db.collection(key).doc(String(item.id)).set(item).catch(() => {});
+            }
+          }
+          return localData;
         }
       } catch (err) {
-        console.warn("Firestore fetch error, falling back to IndexedDB:", err);
+        console.warn("Firestore fetch error, falling back to local storage:", err);
       }
     }
     return localData || [];
@@ -292,8 +325,9 @@ const Storage = {
 // =============================================
 // IMAGE COMPRESSION & FILE READER UTILITIES
 // =============================================
-function compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
+function compressImage(file, maxWidth = 1000, maxHeight = 1000, quality = 0.72) {
   return new Promise((resolve) => {
+    if (!file) return resolve(null);
     if (!file.type || !file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = (e) => resolve(e.target.result);
@@ -348,24 +382,53 @@ function readFileAsDataURL(file) {
 // =============================================
 // CERTIFICATE UPLOAD (for admin & portfolio)
 // =============================================
+async function addCertificate(certData) {
+  let dataURL = certData.file || '';
+  if (certData.fileObject) {
+    dataURL = await compressImage(certData.fileObject);
+  }
+  const cert = {
+    id: String(certData.id || (Date.now() + Math.floor(Math.random() * 1000000))),
+    name: certData.name || 'Untitled Certificate',
+    issuer: certData.issuer || 'Official Credential',
+    category: certData.category || 'General',
+    date: certData.date || new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long' }),
+    link: certData.link || '',
+    file: dataURL,
+    type: certData.type || (dataURL && dataURL.startsWith('data:image') ? 'image/jpeg' : (dataURL.startsWith('data:application/pdf') ? 'application/pdf' : 'image/jpeg')),
+    icon: certData.icon || '🏅',
+    bg: certData.bg || ''
+  };
+  const added = await Storage.add('portfolio-certs', cert);
+  dispatchStorageChange('portfolio-certs');
+  return added;
+}
+
 async function handleCertUpload(files, category = 'General') {
   const results = [];
   for (const file of files) {
     if (!file.type.match(/image\/*|application\/pdf/)) continue;
     const dataURL = await compressImage(file);
     if (!dataURL) continue;
+    const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    const formattedName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
     const cert = {
       id: String(Date.now() + Math.floor(Math.random() * 1000000)),
-      name: file.name.replace(/\.[^/.]+$/, ''),
-      category,
+      name: formattedName,
+      issuer: 'Verified Credential',
+      category: category || 'General',
       file: dataURL,
       type: file.type.startsWith('image/') ? 'image/jpeg' : file.type,
       date: new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long' }),
+      link: ''
     };
     const added = await Storage.add('portfolio-certs', cert);
     if (added) {
       results.push(cert);
     }
+  }
+  if (results.length > 0) {
+    dispatchStorageChange('portfolio-certs');
   }
   return results;
 }
@@ -438,13 +501,15 @@ const DEFAULT_CERTS = [
 
 async function getCerts() {
   let local = [];
+  const hasInit = localStorage.getItem('portfolio-certs-init');
   try {
     local = await Storage.get('portfolio-certs');
-    if (!local || local.length === 0) {
+    if ((!local || local.length === 0) && !hasInit && localStorage.getItem('portfolio-certs') === null) {
       await Storage.set('portfolio-certs', DEFAULT_CERTS);
+      localStorage.setItem('portfolio-certs-init', 'true');
       local = DEFAULT_CERTS;
     }
-  } catch (e) { local = DEFAULT_CERTS; }
+  } catch (e) { local = []; }
   
   const cleanFilter = c => {
     if (!c || !c.id) return false;
@@ -452,8 +517,7 @@ async function getCerts() {
     return !text.includes('automated test') && !text.includes('cloud sync') && !text.includes('test project');
   };
 
-  const cleanLocal = local.filter(cleanFilter);
-  return cleanLocal.length > 0 ? cleanLocal : DEFAULT_CERTS;
+  return (local || []).filter(cleanFilter);
 }
 
 async function renderUploadedCerts() {
@@ -485,9 +549,23 @@ async function renderUploadedCerts() {
   grid.innerHTML = certs.map((cert, idx) => {
     let previewContent = '';
     const hasImage = cert.file && (cert.file.startsWith('data:image') || cert.file.startsWith('http'));
+    const isPdf = cert.file && (cert.file.startsWith('data:application/pdf') || cert.file.endsWith('.pdf'));
     
     if (hasImage) {
       previewContent = `<img src="${cert.file}" alt="${cert.name}" class="cert-img" style="width:100%;height:100%;object-fit:cover;">`;
+    } else if (isPdf) {
+      previewContent = `
+        <div class="cert-badge-wrapper">
+          <div class="cert-badge-top">
+            <span class="cert-live-dot"></span>
+            <span class="cert-badge-cat">${cert.category || 'DOCUMENT'}</span>
+          </div>
+          <div class="cert-badge-ring">
+            <span class="cert-badge-emoji">📄</span>
+          </div>
+          <div class="cert-badge-sub">PDF Document</div>
+        </div>
+      `;
     } else {
       const icon = cert.icon || '🏅';
       const category = cert.category || 'CERTIFIED';
@@ -508,13 +586,24 @@ async function renderUploadedCerts() {
 
     const bgStyle = cert.bg ? `style="background:${cert.bg};"` : '';
     const issuerText = cert.issuer || 'Verified Credential';
-    const certDate = cert.date || '2024';
-    const viewAttr = hasImage 
-      ? `onclick="window.openCertModal('${cert.file}', '${cert.name.replace(/'/g, "\\'")}')"`
-      : `onclick="alert('Certificate Details:\\n\\nName: ${cert.name}\\nIssuer: ${issuerText}\\nDate: ${certDate}')"`;
+    const certDate = cert.date || '2026';
+    const safeTitle = (cert.name || 'Certificate').replace(/'/g, "\\'");
+    
+    let viewAttr = '';
+    if (cert.file) {
+      viewAttr = `onclick="window.openCertModal('${cert.file}', '${safeTitle}')"`;
+    } else if (cert.link) {
+      viewAttr = `onclick="window.open('${cert.link}', '_blank')"`;
+    } else {
+      viewAttr = `onclick="alert('Certificate Details:\\n\\nTitle: ${safeTitle}\\nIssuer: ${issuerText}\\nDate: ${certDate}\\nCategory: ${cert.category || 'General'}')"`;
+    }
+
+    const verifyBadge = cert.link 
+      ? `<a href="${cert.link}" target="_blank" rel="noopener noreferrer" class="cert-verify-link" style="font-size:0.75rem; color:var(--accent-1); text-decoration:none; display:inline-flex; align-items:center; gap:0.25rem; font-weight:600;" onclick="event.stopPropagation()">Verify ↗</a>` 
+      : '';
 
     return `
-      <div class="cert-card cert-reveal stagger-${(idx % 5) + 1}" data-cert-id="${cert.id}">
+      <div class="cert-card cert-reveal stagger-${(idx % 5) + 1}" data-cert-id="${cert.id}" data-category="${cert.category || 'General'}">
         <div class="cert-preview" ${bgStyle}>
           ${previewContent}
           <div class="cert-overlay">
@@ -522,6 +611,9 @@ async function renderUploadedCerts() {
           </div>
         </div>
         <div class="cert-info">
+          <div style="display:flex; justify-content:flex-end; align-items:center; margin-bottom:0.4rem;">
+            <span class="cert-date">${certDate}</span>
+          </div>
           <div class="cert-title">${cert.name}</div>
         </div>
       </div>
@@ -532,11 +624,14 @@ async function renderUploadedCerts() {
   // so activate them after they enter the DOM
   requestAnimationFrame(() => {
     grid.querySelectorAll('.cert-reveal').forEach((card, index) => {
-      card.style.transitionDelay = `${index * 100}ms`;
+      card.style.transitionDelay = `${index * 80}ms`;
       card.classList.add('active');
     });
   });
 
+  if (window.initCertFilter) {
+    window.initCertFilter();
+  }
   if (window.initLightbox) {
     window.initLightbox();
   }
@@ -544,6 +639,16 @@ async function renderUploadedCerts() {
 
 // Global modal opener for high-res Lightbox viewing
 window.openCertModal = function(src, title) {
+  if (!src) return;
+  if (src.startsWith('data:application/pdf') || src.endsWith('.pdf')) {
+    const pdfWindow = window.open();
+    if (pdfWindow) {
+      pdfWindow.document.write(`<title>${title || 'Certificate PDF'}</title><iframe src="${src}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+    } else {
+      window.open(src, '_blank');
+    }
+    return;
+  }
   const lightbox = document.getElementById('lightbox');
   const content = document.getElementById('lightbox-content');
   if (lightbox && content) {
@@ -708,9 +813,21 @@ const DEFAULT_PROJECTS = [
 
 async function getProjects() {
   let local = [];
+  const hasInit = localStorage.getItem('portfolio-projects-init');
   try {
-    local = JSON.parse(localStorage.getItem('portfolio-projects')) || [];
+    const stored = await Storage.get('portfolio-projects');
+    if (stored && Array.isArray(stored)) {
+      local = stored;
+    } else {
+      local = JSON.parse(localStorage.getItem('portfolio-projects')) || [];
+    }
   } catch (e) { local = []; }
+
+  if ((!local || local.length === 0) && !hasInit && localStorage.getItem('portfolio-projects') === null) {
+    await Storage.set('portfolio-projects', DEFAULT_PROJECTS);
+    localStorage.setItem('portfolio-projects-init', 'true');
+    local = DEFAULT_PROJECTS;
+  }
 
   const cleanFilter = p => {
     if (!p || !p.id) return false;
@@ -718,23 +835,7 @@ async function getProjects() {
     return !text.includes('automated test') && !text.includes('cloud sync') && !text.includes('test project');
   };
 
-  let cleanLocal = local.filter(cleanFilter);
-
-  try {
-    const stored = await Storage.get('portfolio-projects');
-    if (stored && Array.isArray(stored)) {
-      const cleaned = stored.filter(cleanFilter);
-      if (cleaned.length > 0) {
-        cleanLocal = cleaned;
-      }
-    }
-  } catch (e) {}
-
-  if (cleanLocal.length === 0) {
-    return DEFAULT_PROJECTS;
-  }
-
-  return cleanLocal;
+  return (local || []).filter(cleanFilter);
 }
 
 async function renderProjects() {
@@ -799,24 +900,25 @@ function initFirestoreListeners() {
   const collections = ['portfolio-certs', 'portfolio-projects', 'portfolio-videos', 'portfolio-messages'];
   collections.forEach(key => {
     try {
-      db.collection(key).onSnapshot(snapshot => {
+      db.collection(key).onSnapshot(async snapshot => {
         const firestoreDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         if (firestoreDocs.length > 0) {
-          const currentLocal = localStorage.getItem(key);
-          const newJson = JSON.stringify(firestoreDocs);
-          if (currentLocal !== newJson) {
-            localStorage.setItem(key, newJson);
-            if (key === 'portfolio-certs') renderUploadedCerts();
-            if (key === 'portfolio-projects') renderProjects();
-            if (key === 'portfolio-videos') renderUploadedVideos();
-            if (key === 'portfolio-messages' && window.renderAdminMessages) window.renderAdminMessages();
+          const currentIDB = (await IDB.get(key)) || [];
+          const mergedMap = new Map();
+          firestoreDocs.forEach(item => {
+            if (item && item.id) mergedMap.set(String(item.id), item);
+          });
+          if (Array.isArray(currentIDB)) {
+            currentIDB.forEach(item => {
+              if (item && item.id && !mergedMap.has(String(item.id))) {
+                mergedMap.set(String(item.id), item);
+              }
+            });
           }
-        } else {
-          // Firestore is empty — clear localStorage to match (never re-push)
-          localStorage.setItem(key, JSON.stringify([]));
-          if (key === 'portfolio-certs') renderUploadedCerts();
-          if (key === 'portfolio-projects') renderProjects();
-          if (key === 'portfolio-messages' && window.renderAdminMessages) window.renderAdminMessages();
+          const merged = Array.from(mergedMap.values());
+          await IDB.set(key, merged);
+          try { localStorage.setItem(key, JSON.stringify(merged)); } catch (e) {}
+          triggerGlobalReRender();
         }
       }, err => {
         console.warn(`Firestore onSnapshot warning for ${key}:`, err);
@@ -914,11 +1016,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 100);
 });
 
+window.dispatchStorageChange = dispatchStorageChange;
+window.triggerGlobalReRender = triggerGlobalReRender;
+
 // Export for admin
 window.PortfolioUpload = {
-  handleCertUpload, handleResumeUpload, addVideoEmbed,
+  addCertificate, handleCertUpload, handleResumeUpload, addVideoEmbed,
   renderUploadedCerts, renderUploadedVideos, renderUploadedResume,
   renderProjects, getProjects, DEFAULT_PROJECTS,
-  getCerts, DEFAULT_CERTS,
+  getCerts, DEFAULT_CERTS, compressImage, dispatchStorageChange, triggerGlobalReRender,
   Storage, openVideoModal, db, syncAllToCloud, removeTestItems
 };
