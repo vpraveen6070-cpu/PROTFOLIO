@@ -29,7 +29,7 @@
 
   /* Typography Hierarchy */
   --font-serif-editorial: 'Newsreader', Georgia, serif;
-  --font-signature: 'Monsieur La Doulaise', 'Herr Von Muellerhoff', 'Birthstone', 'Pinyon Script', 'Alex Brush', 'Great Vibes', cursive;
+  --font-signature: 'Parisienne', cursive;
   --font-sans-display: 'Plus Jakarta Sans', 'Montserrat', 'Inter', system-ui, sans-serif;
   --font-mono-meta: 'JetBrains Mono', monospace;
 
@@ -315,17 +315,24 @@ section {
 }
 .name-line1, .doctor-signature, .signature-font {
   font-family: var(--font-signature);
-  font-size: clamp(4rem, 11vw, 8rem);
+  font-size: clamp(4.8rem, 12.5vw, 8.8rem);
   font-weight: 400;
   font-style: normal;
-  color: #1a1a1a;
-  letter-spacing: 0.01em;
+  background: linear-gradient(100deg, #181410 0%, #2e2417 18%, #6d4f1a 38%, #a67721 60%, #ce9526 80%, #dfa82c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: 0;
+  font-feature-settings: "liga" 1, "calt" 1, "kern" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-transform: none;
-  background: none;
-  -webkit-text-fill-color: initial;
-  line-height: 1.0;
-  display: block;
-  margin-bottom: -0.12em;
+  line-height: 1.25;
+  display: inline-block;
+  padding: 0.05em 0.25em 0.08em 0.12em;
+  margin-bottom: -0.16em;
 }
 .name-line2 {
   font-family: var(--font-sans-display);
@@ -374,7 +381,6 @@ section {
   margin-left: 4px;
   animation: blink 1s step-end infinite;
   vertical-align: middle;
-}  box-shadow: none;
 }
 @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
 .hero-description {
@@ -390,7 +396,6 @@ section {
 .hero-buttons {
   display: flex; gap: 1.5rem;
   justify-content: center; flex-wrap: wrap;
-  margin: 0 auto 4rem;
   opacity: 0;
   animation: fadeInUp 0.8s ease 1.5s forwards;
 }
@@ -1487,7 +1492,8 @@ footer {
 @media (max-width: 768px) {
   .nav-links { display: none; }
   .hamburger { display: flex; }
-  .hero-name { font-size: clamp(2rem, 10vw, 3rem); }
+  .name-line1 { font-size: clamp(3.2rem, 14vw, 4.8rem); }
+  .name-line2 { font-size: clamp(2.2rem, 9.5vw, 3.4rem); }
   .projects-grid { grid-template-columns: 1fr; }
   .skills-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   .about-info-grid { grid-template-columns: 1fr; }
@@ -1533,7 +1539,8 @@ footer {
   body.view-mobile #navbar { width: 430px; left: 50%; transform: translateX(-50%); }
   body.view-mobile .nav-links { display: none !important; }
   body.view-mobile .hamburger { display: flex !important; }
-  body.view-mobile .hero-name { font-size: 2.8rem !important; }
+  body.view-mobile .name-line1 { font-size: 3.8rem !important; }
+  body.view-mobile .name-line2 { font-size: 2.6rem !important; }
   body.view-mobile .about-grid, 
   body.view-mobile .contact-grid { grid-template-columns: 1fr !important; text-align: center; }
   body.view-mobile .projects-grid,

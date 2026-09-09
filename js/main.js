@@ -211,20 +211,29 @@ window.initCertFilter = initCertFilter;
 function initLightbox() {
   const lightbox = document.getElementById('lightbox');
   const lightboxContent = document.getElementById('lightbox-content');
+  const lightboxIframe = document.getElementById('lightbox-iframe');
   const lightboxClose = document.getElementById('lightbox-close');
+
+  const closeLightbox = () => {
+    if (!lightbox) return;
+    lightbox.classList.remove('open');
+    if (lightboxIframe) lightboxIframe.src = '';
+  };
 
   document.querySelectorAll('[data-lightbox]').forEach(item => {
     item.addEventListener('click', () => {
       const src = item.getAttribute('data-lightbox');
       if (!lightbox || !lightboxContent) return;
       lightboxContent.src = src;
+      lightboxContent.style.display = 'block';
+      if (lightboxIframe) lightboxIframe.style.display = 'none';
       lightbox.classList.add('open');
     });
   });
 
-  lightboxClose?.addEventListener('click', () => lightbox?.classList.remove('open'));
+  lightboxClose?.addEventListener('click', closeLightbox);
   lightbox?.addEventListener('click', (e) => {
-    if (e.target === lightbox) lightbox.classList.remove('open');
+    if (e.target === lightbox) closeLightbox();
   });
 }
 

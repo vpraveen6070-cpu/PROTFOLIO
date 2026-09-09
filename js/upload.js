@@ -156,10 +156,20 @@ const Storage = {
         const snapshot = await db.collection(key).get();
         const firestoreDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Firestore docs are authoritative
-        await IDB.set(key, firestoreDocs);
-        try { localStorage.setItem(key, JSON.stringify(firestoreDocs)); } catch (e) {}
-        return firestoreDocs;
+        const mergedMap = new Map();
+        firestoreDocs.forEach(item => {
+          if (item && item.id) mergedMap.set(String(item.id), item);
+        });
+        localData.forEach(item => {
+          if (item && item.id && !mergedMap.has(String(item.id))) {
+            mergedMap.set(String(item.id), item);
+            db.collection(key).doc(String(item.id)).set(item).catch(() => {});
+          }
+        });
+        const merged = Array.from(mergedMap.values());
+        await IDB.set(key, merged);
+        try { localStorage.setItem(key, JSON.stringify(merged)); } catch (e) {}
+        return merged;
       } catch (err) {
         console.warn("Firestore fetch error, falling back to local storage:", err);
       }
@@ -358,6 +368,51 @@ function readFileAsDataURL(file) {
 }
 
 // =============================================
+// PDF TO HIGH-RES IMAGE CONVERTER
+// =============================================
+async function convertPdfToImage(fileOrDataUrl) {
+  try {
+    if (typeof pdfjsLib === 'undefined') {
+      console.warn("PDF.js library not available");
+      return null;
+    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let arrayBuffer;
+    if (fileOrDataUrl instanceof File || fileOrDataUrl instanceof Blob) {
+      arrayBuffer = await fileOrDataUrl.arrayBuffer();
+    } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:application/pdf')) {
+      const base64 = fileOrDataUrl.split(',')[1];
+      const binaryStr = atob(base64);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      arrayBuffer = bytes.buffer;
+    } else {
+      return null;
+    }
+
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    
+    // Scale 2.5 for crisp retina high-res rendering
+    const viewport = page.getViewport({ scale: 2.5 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+
+    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    return canvas.toDataURL('image/png');
+  } catch (err) {
+    console.warn("PDF to Image conversion error:", err);
+    return null;
+  }
+}
+
+// =============================================
 // CERTIFICATE UPLOAD (for admin & portfolio)
 // =============================================
 async function addCertificate(certData) {
@@ -386,8 +441,15 @@ async function handleCertUpload(files, category = 'General') {
   const results = [];
   for (const file of files) {
     if (!file.type.match(/image\/*|application\/pdf/)) continue;
-    const dataURL = await compressImage(file);
+    let dataURL = '';
+    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+      dataURL = await convertPdfToImage(file);
+      if (!dataURL) dataURL = await compressImage(file);
+    } else {
+      dataURL = await compressImage(file);
+    }
     if (!dataURL) continue;
+
     const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
     const formattedName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
     const cert = {
@@ -396,7 +458,7 @@ async function handleCertUpload(files, category = 'General') {
       issuer: 'Verified Credential',
       category: category || 'General',
       file: dataURL,
-      type: file.type.startsWith('image/') ? 'image/jpeg' : file.type,
+      type: 'image/png',
       date: new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long' }),
       link: ''
     };
@@ -522,28 +584,26 @@ async function renderUploadedCerts() {
     return;
   }
 
+  // Convert any legacy base64 PDFs to crisp image representations dynamically
+  for (const cert of allCerts) {
+    if (cert.file && cert.file.startsWith('data:application/pdf')) {
+      const converted = await convertPdfToImage(cert.file);
+      if (converted) {
+        cert.file = converted;
+        cert.type = 'image/png';
+        await Storage.add('portfolio-certs', cert);
+      }
+    }
+  }
+
   const certs = allCerts;
 
   grid.innerHTML = certs.map((cert, idx) => {
     let previewContent = '';
     const hasImage = cert.file && (cert.file.startsWith('data:image') || cert.file.startsWith('http'));
-    const isPdf = cert.file && (cert.file.startsWith('data:application/pdf') || cert.file.endsWith('.pdf'));
     
     if (hasImage) {
       previewContent = `<img src="${cert.file}" alt="${cert.name}" class="cert-img" style="width:100%;height:100%;object-fit:cover;">`;
-    } else if (isPdf) {
-      previewContent = `
-        <div class="cert-badge-wrapper">
-          <div class="cert-badge-top">
-            <span class="cert-live-dot"></span>
-            <span class="cert-badge-cat">${cert.category || 'DOCUMENT'}</span>
-          </div>
-          <div class="cert-badge-ring">
-            <span class="cert-badge-emoji">📄</span>
-          </div>
-          <div class="cert-badge-sub">PDF Document</div>
-        </div>
-      `;
     } else {
       const icon = cert.icon || '🏅';
       const category = cert.category || 'CERTIFIED';
@@ -615,27 +675,62 @@ async function renderUploadedCerts() {
   }
 }
 
-// Global modal opener for high-res Lightbox viewing
+function certDataURLtoBlob(dataurl) {
+  try {
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'application/pdf';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  } catch (e) {
+    return null;
+  }
+}
+
+// Global modal opener for high-res Lightbox viewing (Image & PDF)
 window.openCertModal = function(src, title) {
   if (!src) return;
-  if (src.startsWith('data:application/pdf') || src.endsWith('.pdf')) {
-    const pdfWindow = window.open();
-    if (pdfWindow) {
-      pdfWindow.document.write(`<title>${title || 'Certificate PDF'}</title><iframe src="${src}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
-    } else {
-      window.open(src, '_blank');
-    }
-    return;
-  }
   const lightbox = document.getElementById('lightbox');
-  const content = document.getElementById('lightbox-content');
-  if (lightbox && content) {
-    content.src = src;
-    content.alt = title || 'Certificate Preview';
-    lightbox.classList.add('open');
-  } else {
-    window.open(src, '_blank');
+  const imgContent = document.getElementById('lightbox-content');
+  let iframeContent = document.getElementById('lightbox-iframe');
+
+  if (!lightbox) return;
+
+  if (!iframeContent) {
+    iframeContent = document.createElement('iframe');
+    iframeContent.id = 'lightbox-iframe';
+    iframeContent.style.cssText = 'display:none; width:90vw; max-width:1050px; height:85vh; border-radius:12px; border:none; background:#fff;';
+    lightbox.appendChild(iframeContent);
   }
+
+  const isPdf = src.startsWith('data:application/pdf') || src.endsWith('.pdf');
+
+  if (isPdf) {
+    if (imgContent) imgContent.style.display = 'none';
+    let targetUrl = src;
+    if (src.startsWith('data:application/pdf')) {
+      const blob = certDataURLtoBlob(src);
+      if (blob) {
+        targetUrl = URL.createObjectURL(blob);
+      }
+    }
+    iframeContent.src = targetUrl;
+    iframeContent.style.display = 'block';
+  } else {
+    if (iframeContent) iframeContent.style.display = 'none';
+    if (imgContent) {
+      imgContent.src = src;
+      imgContent.alt = title || 'Certificate Preview';
+      imgContent.style.display = 'block';
+    }
+  }
+
+  lightbox.classList.add('open');
 };
 
 
@@ -880,8 +975,21 @@ function initFirestoreListeners() {
     try {
       db.collection(key).onSnapshot(async snapshot => {
         const firestoreDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        await IDB.set(key, firestoreDocs);
-        try { localStorage.setItem(key, JSON.stringify(firestoreDocs)); } catch (e) {}
+        const currentIDB = (await IDB.get(key)) || [];
+        const mergedMap = new Map();
+        firestoreDocs.forEach(item => {
+          if (item && item.id) mergedMap.set(String(item.id), item);
+        });
+        if (Array.isArray(currentIDB)) {
+          currentIDB.forEach(item => {
+            if (item && item.id && !mergedMap.has(String(item.id))) {
+              mergedMap.set(String(item.id), item);
+            }
+          });
+        }
+        const merged = Array.from(mergedMap.values());
+        await IDB.set(key, merged);
+        try { localStorage.setItem(key, JSON.stringify(merged)); } catch (e) {}
         triggerGlobalReRender();
       }, err => {
         console.warn(`Firestore onSnapshot warning for ${key}:`, err);

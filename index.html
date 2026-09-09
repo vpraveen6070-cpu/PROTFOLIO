@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,400&display=swap" rel="stylesheet">
   <link
-    href="https://fonts.googleapis.com/css2?family=Monsieur+La+Doulaise&family=Herr+Von+Muellerhoff&family=Birthstone&family=Pinyon+Script&family=Alex+Brush&family=Great+Vibes&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Montserrat:wght@800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Allura&family=Arizonia&family=Corinthia:wght@400;700&family=Great+Vibes&family=Italianno&family=Lavishly+Yours&family=MonteCarlo&family=Parisienne&family=Pinyon+Script&family=Style+Script&family=Tangerine:wght@700&family=WindSong:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Montserrat:wght@800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet">
 
   <!-- CSS -->
@@ -55,7 +55,8 @@
 
   <!-- ======================== NAVBAR ======================== -->
   <nav id="navbar">
-    <a href="#hero" class="nav-logo"><img src="images/pk-logo.png" alt="PK Logo" class="brand-logo-img nav-logo-img"></a>
+    <a href="#hero" class="nav-logo"><img src="images/pk-logo.png" alt="PK Logo"
+        class="brand-logo-img nav-logo-img"></a>
 
     <ul class="nav-links">
       <li><a href="#about">About</a></li>
@@ -84,7 +85,6 @@
 
   <!-- ======================== HERO SECTION ======================== -->
   <section id="hero">
-    <canvas id="canvas-bg"></canvas>
     <div class="hero-content">
       <p class="hero-greeting">HELLO WORLD, I'M SOFTWARE ENGINEER</p>
       <h1 class="hero-name">
@@ -97,14 +97,11 @@
         <span class="typing-cursor"></span>
       </div>
       <p class="hero-description">
-        Passionate about building intelligent systems and crafting elegant code.
-        On a mission to shape the future with <strong style="color:var(--accent-1)">Computer Science</strong> and
-        <strong style="color:var(--accent-2)">Engineering</strong>...
-        📍India
+        Passionate about building intelligent systems and crafting elegant code. On a mission to shape the future with <strong>Computer Science</strong> and <strong>Engineering</strong>... 📍 India
       </p>
       <div class="hero-buttons">
-        <a href="#projects" class="btn-primary ripple-btn"> View Projects</a>
-        <a href="javascript:void(0)" class="btn-secondary resume-download-link">📄 Download Resume</a>
+        <a href="#projects" class="btn-primary ripple-btn">VIEW PROJECTS</a>
+        <a href="javascript:void(0)" class="btn-secondary resume-download-link">📄 DOWNLOAD RESUME</a>
       </div>
     </div>
   </section>
@@ -202,7 +199,7 @@
       <div class="academics-grid">
         <!-- Academic Item 1: B.Tech CSE -->
         <div class="academic-card reveal">
-          <div class="academic-badge">2022 – Present</div>
+          <div class="academic-badge">2024 – Present</div>
           <div class="academic-icon">🎓</div>
           <div class="academic-details">
             <h3 class="academic-degree">Bachelor of Technology in Computer Science Engineering</h3>
@@ -538,7 +535,8 @@
   <!-- ======================== LIGHTBOX ======================== -->
   <div id="lightbox">
     <span id="lightbox-close">✕</span>
-    <img id="lightbox-content" src="" alt="Preview">
+    <img id="lightbox-content" src="" alt="Preview" style="display:none;">
+    <iframe id="lightbox-iframe" src="" style="display:none; width:90vw; max-width:1050px; height:85vh; border-radius:12px; border:none; background:#fff;"></iframe>
   </div>
 
   <!-- ======================== BACK TO TOP ======================== -->
@@ -550,7 +548,10 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="js/firebase-config.js?v=12"></script>
 
-  <script src="js/upload.js?v=20"></script>
+  <!-- PDF.js Renderer -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <script src="js/upload.js?v=21"></script>
   <script src="js/theme-switcher.js?v=12"></script>
   <script src="js/animations.js?v=12"></script>
   <script src="js/main.js?v=20"></script>
